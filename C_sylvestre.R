@@ -305,30 +305,7 @@ for(i in 1:n_perm) {
 #### plots ------------------------------------------------------------------
 hist(mill$StartDate, breaks = 50)
 
-## species accumulation 1971 to 1985
-sp_acc_m1_long <- pivot_longer(sp_acc_m1, cols = 2:ncol(sp_acc_m1), 
-                               names_to = "iteration", values_to = "cum_sp")
-ggplot(data = sp_acc_m1_long, aes(x = record, y = cum_sp)) + 
-  geom_line(aes(group = iteration)) + 
-  geom_smooth(data = sp_acc_m1_long, aes(x = record, y = cum_sp)) + 
-  geom_line(data = sp_acc_m1_long[sp_acc_m1_long$iteration == "obs_n_sp", ], 
-            aes(x = record, y = cum_sp), color = "orange", size = 1.1) + 
-  xlab("Number of records") + ylab("Cumulative number of species") +
-  ggtitle("1971 to 1984") + 
-  theme(legend.position = "none")
-
-## species accumulation 1986 to 2005
-sp_acc_m2_long <- pivot_longer(sp_acc_m2, cols = 2:ncol(sp_acc_m2), 
-                               names_to = "iteration", values_to = "cum_sp")
-ggplot(data = sp_acc_m2_long, aes(x = record, y = cum_sp)) + 
-  geom_line(aes(group = iteration)) + 
-  geom_smooth(data = sp_acc_m2_long, aes(x = record, y = cum_sp)) + 
-  geom_line(data = sp_acc_m2_long[sp_acc_m2_long$iteration == "obs_n_sp", ], 
-            aes(x = record, y = cum_sp), color = "orange", size = 1.1) + 
-  xlab("Number of records") + ylab("Cumulative number of species") + 
-  ggtitle("1986 to 2005") + 
-  theme(legend.position = "none")
-
+## species accumulation by records in both time periods
 sp_acc_m1_long$period <- 1
 sp_acc_m2_long$period <- 2
 sp_acc_all_long <- bind_rows(sp_acc_m1_long, sp_acc_m2_long)
@@ -348,7 +325,7 @@ ggplot(data = m2, aes(x = eastings, y = northings,
                       color = as.numeric(as.character(year)))) + 
   geom_point()
 
-
+# Nearby species accumulation curves
 ggplot(data = sp_acc_nearby_all, aes(x = record, y = cum_sp)) + 
   geom_line(aes(group = iteration)) + 
   geom_smooth(data = sp_acc_nearby_all, aes(x = record, y = cum_sp)) + 
@@ -387,4 +364,3 @@ hist(as.numeric(table(mill$hectad)), breaks = 50)
 table(mill$year)
 
 table(gbif$countryCode)
-
