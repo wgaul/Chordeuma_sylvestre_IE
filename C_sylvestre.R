@@ -3,7 +3,7 @@
 ## 
 ## author: Willson Gaul willson.gaul@ucdconnect.ie
 ## created: 28 March 2020
-## last modified: 3 April 2020
+## last modified: 6 April 2020
 #################
 library(wgutil)
 library(tidyverse)
@@ -84,13 +84,13 @@ table(mill$Genus_species)[order(as.numeric(table(mill$Genus_species)))]
 
 
 
-# species richness estimates for the 2 time periods
-m1_sp <- specpool(m1_wide) # sp richness 1971 to 1985
-m2_sp <- specpool(m2_wide) # sp richness 1986 to 2006
+# species richness estimates for the 2 time periods using records --------------
+m1_sp <- specpool(m1_wide, smallsample = TRUE) # sp richness 1971 to 1985
+m2_sp <- specpool(m2_wide, smallsample = TRUE) # sp richness 1986 to 2006
 m1_sp
 m2_sp
 
-## make df of species accumulations
+## make df of species accumulations using records
 sp_acc_m1 <- data.frame(record = 1:nrow(m1), obs_n_sp = NA)
 for(i in 1:nrow(sp_acc_m1)) {
   sp_acc_m1$obs_n_sp[i] = length(unique(m1$Genus_species[1:i]))
@@ -107,6 +107,10 @@ for(i in 1:n_perm) {
   # add permutation accumulation as a column in sp_acc_m1 data frame
   sp_acc_m1[, ncol(sp_acc_m1) + 1] <- perm_accum
 }
+sp_acc_m1_long <- pivot_longer(sp_acc_m1, 
+                               cols = 2:ncol(sp_acc_m1), 
+                               names_to = "iteration", 
+                               values_to = "cum_sp")
 
 sp_acc_m2 <- data.frame(record = 1:nrow(m2), obs_n_sp = NA)
 for(i in 1:nrow(sp_acc_m2)) {
@@ -124,7 +128,10 @@ for(i in 1:n_perm) {
   # add permutation accumulation as a column in sp_acc_m1 data frame
   sp_acc_m2[, ncol(sp_acc_m2) + 1] <- perm_accum
 }
-
+sp_acc_m2_long <- pivot_longer(sp_acc_m2, 
+                               cols = 2:ncol(sp_acc_m2), 
+                               names_to = "iteration", 
+                               values_to = "cum_sp")
 
 ## get only records from the area within 20km of where I found C. sylvestre
 nearby_m1 <- m1[m1$eastings > 318000 - 20000 &
@@ -148,14 +155,14 @@ nearby_m2_wide <- select(nearby_m2, checklist_ID, Genus_species) %>%
   select(-checklist_ID)
 
 # look at species richness estimates for 20km radius area
-nearby_m1_sp <- specpool(nearby_m1_wide)
-nearby_m2_sp <- specpool(nearby_m2_wide)
+nearby_m1_sp <- specpool(nearby_m1_wide, smallsample = TRUE)
+nearby_m2_sp <- specpool(nearby_m2_wide, smallsample = TRUE)
 nearby_m1_sp
 nearby_m2_sp
 plot(poolaccum(nearby_m1_wide))
 plot(poolaccum(nearby_m2_wide))
 
-## do random sp accumulation curves for nearby records
+## do random sp accumulation curves for nearby records -------------------------
 sp_acc_nearby_m1 <- data.frame(record = 1:nrow(nearby_m1), obs_n_sp = NA)
 for(i in 1:nrow(sp_acc_nearby_m1)) {
   sp_acc_nearby_m1$obs_n_sp[i] = length(unique(nearby_m1$Genus_species[1:i]))
@@ -169,7 +176,7 @@ for(i in 1:n_perm) {
     # calculate cumulative number of species
     perm_accum[j] <- length(unique(perm_sp[1:j]))
   }
-  # add permutation accumulation as a column in sp_acc_m1 data frame
+  # add permutation accumulation as a column in sp_acc_nearby_m1 data frame
   sp_acc_nearby_m1[, ncol(sp_acc_nearby_m1) + 1] <- perm_accum
 }
 
@@ -232,8 +239,8 @@ m2_bySite_wide[, 2:ncol(m2_bySite_wide)] <- pa(
   m2_bySite_wide[, 2:ncol(m2_bySite_wide)])
 
 # estimate species richness when adding sites (1 km grid squares)
-m1_bySite_sp <- specpool(m1_bySite_wide) 
-m2_bySite_sp <- specpool(m2_bySite_wide) 
+m1_bySite_sp <- specpool(m1_bySite_wide, smallsample = TRUE) 
+m2_bySite_sp <- specpool(m2_bySite_wide, smallsample = TRUE) 
 
 ### make df of species accumulations for graphing 
 m1_bySite_long <- filter(m1, Precision == 1000) %>%
@@ -266,6 +273,10 @@ for(i in 1:n_perm) {
   # add permutation accumulation as a column in sp_acc_bySite_m1 data frame
   sp_acc_bySite_m1[, ncol(sp_acc_bySite_m1) + 1] <- perm_accum
 }
+sp_acc_bySite_m1_long <- pivot_longer(sp_acc_bySite_m1, 
+                               cols = 3:ncol(sp_acc_bySite_m1), 
+                               names_to = "iteration", 
+                               values_to = "cum_sp")
 
 # period 2 
 m2_bySite_long <- filter(m2, Precision == 1000) %>%
@@ -298,12 +309,26 @@ for(i in 1:n_perm) {
   # add permutation accumulation as a column in sp_acc_bySite_m1 data frame
   sp_acc_bySite_m2[, ncol(sp_acc_bySite_m2) + 1] <- perm_accum
 }
+sp_acc_bySite_m2_long <- pivot_longer(sp_acc_bySite_m2, 
+                                      cols = 3:ncol(sp_acc_bySite_m2), 
+                                      names_to = "iteration", 
+                                      values_to = "cum_sp")
 
 ### end species accumulation by adding grid squares ---------------------------
 
 
 #### plots ------------------------------------------------------------------
-hist(mill$StartDate, breaks = 50)
+t_size <- 25
+
+## histogram of record dates
+year_hist <- ggplot(data = mill,
+                    aes(x = year)) + 
+  geom_histogram(bins = 45) + 
+  xlab("Year") + ylab("Number of records") + 
+  theme_bw() + 
+  theme(text = element_text(size = t_size*1.2), 
+        legend.key.width = unit(1.8*t_size, "points"))
+year_hist
 
 ## species accumulation by records in both time periods
 sp_acc_m1_long$period <- 1
@@ -312,18 +337,19 @@ sp_acc_all_long <- bind_rows(sp_acc_m1_long, sp_acc_m2_long)
 
 ggplot(data = sp_acc_all_long, aes(x = record, y = cum_sp)) + 
   geom_line(aes(group = iteration)) + 
-  geom_smooth(data = sp_acc_all_long, aes(x = record, y = cum_sp)) + 
+  geom_smooth(data = sp_acc_all_long, aes(x = record, y = cum_sp)) +
   geom_line(data = sp_acc_all_long[sp_acc_all_long$iteration == "obs_n_sp", ], 
             aes(x = record, y = cum_sp), color = "orange", size = 1.1) + 
   facet_wrap(~factor(as.character(period), levels = c("1", "2"), 
                      labels = c("1971 to 1984", "1986 to 2005"))) + 
   xlab("Number of records") + ylab("Cumulative number of species") + 
+  theme_bw() + 
   theme(legend.position = "none")
 
-# plot location of surveys by year in period 2
-ggplot(data = m2, aes(x = eastings, y = northings, 
-                      color = as.numeric(as.character(year)))) + 
-  geom_point()
+# # plot location of surveys by year in period 2
+# ggplot(data = m2, aes(x = eastings, y = northings, 
+#                       color = as.numeric(as.character(year)))) + 
+#   geom_point()
 
 # Nearby species accumulation curves
 ggplot(data = sp_acc_nearby_all, aes(x = record, y = cum_sp)) + 
@@ -336,6 +362,7 @@ ggplot(data = sp_acc_nearby_all, aes(x = record, y = cum_sp)) +
                      labels = c("1971 to 1984", "1986 to 2005"))) + 
   xlab("Number of records") + ylab("Cumulative number of species") + 
   ggtitle("Recording within 20 km of new C. sylvestre record") + 
+  theme_bw() + 
   theme(legend.position = "none")
 
 
@@ -359,8 +386,14 @@ ggplot(data = sp_acc_bySite_all_long[sp_acc_bySite_all_long$iteration !=
 ### numbers for paper -----------------------------------------------------
 nrow(mill) # number of records
 length(unique(mill$hectad)) # number of hectads with at least one record
+summary(as.numeric(table(mill$hectad)))
 hist(as.numeric(table(mill$hectad)), breaks = 50) 
 
 table(mill$year)
 
 table(gbif$countryCode)
+
+
+### print plots ---------------------------------------------------------------
+ggsave("year_hist.jpg", year_hist, device = "jpeg", width = 25, height = 25, 
+       units = "cm")
