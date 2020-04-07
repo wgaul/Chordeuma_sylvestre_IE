@@ -3,13 +3,13 @@
 ## 
 ## author: Willson Gaul willson.gaul@ucdconnect.ie
 ## created: 28 March 2020
-## last modified: 6 April 2020
+## last modified: 7 April 2020
 #################
 library(wgutil)
+library(Hmisc)
 library(tidyverse)
 library(lubridate)
-library(vegan)
-library(fossil)
+library(SpadeR)
 
 setwd("~/Documents/UCD/PhD_Project/Chordeuma_sylvestre/")
 
@@ -83,12 +83,56 @@ m2_wide <- select(m2, checklist_ID, Genus_species) %>%
 table(mill$Genus_species)[order(as.numeric(table(mill$Genus_species)))]
 
 
-
 # species richness estimates for the 2 time periods using records --------------
-m1_sp <- specpool(m1_wide, smallsample = TRUE) # sp richness 1971 to 1985
-m2_sp <- specpool(m2_wide, smallsample = TRUE) # sp richness 1986 to 2006
-m1_sp
-m2_sp
+m1_sp <- ChaoSpecies(t(m1_wide), datatype = "incidence_raw", k = 10)
+m2_sp <- ChaoSpecies(t(m2_wide), datatype = "incidence_raw", k = 10)
+
+## species richness estimates with increasing sample size
+n_records <- seq(from = 200, to = 1000, by = 200)
+m1_rare <- lapply(n_records, FUN = function(nr, dat) {
+  # select subset of records
+  dat <- dat[sample(1:nrow(dat), size = nr, replace = FALSE), ] 
+  # spread
+  dat <- select(dat, checklist_ID, Genus_species) %>%
+    mutate(present = 1) %>%
+    unique() %>%
+    spread(key = Genus_species, value = present, fill = 0) %>%
+    select(-checklist_ID)
+  # estimate species richness
+  dat_sp <- ChaoSpecies(t(dat), datatype = "incidence_raw", k = 10)
+  dat_sp <- data.frame(dat_sp$Species_table)
+  dat_sp$model <- rownames(dat_sp)
+  dat_sp$nrecords <- nr
+  dat_sp
+}, dat = m1)
+m1_rare <- bind_rows(m1_rare)
+m1_rare_wide <- pivot_longer(m1_rare, cols = 1:4, names_to = "metric", 
+                             values_to = "value") %>%
+  filter(metric != "X...s.e." & !grepl(".*Homogeneous Model.*|.*iChao2.*", 
+                                       model))
+# for 2nd time period
+n_records <- seq(from = 200, to = 3200, by = 200)
+m2_rare <- lapply(n_records, FUN = function(nr, dat) {
+  # select subset of records
+  dat <- dat[sample(1:nrow(dat), size = nr, replace = FALSE), ] 
+  # spread
+  dat <- select(dat, checklist_ID, Genus_species) %>%
+    mutate(present = 1) %>%
+    unique() %>%
+    spread(key = Genus_species, value = present, fill = 0) %>%
+    select(-checklist_ID)
+  # estimate species richness
+  dat_sp <- ChaoSpecies(t(dat), datatype = "incidence_raw", k = 10)
+  dat_sp <- data.frame(dat_sp$Species_table)
+  dat_sp$model <- rownames(dat_sp)
+  dat_sp$nrecords <- nr
+  dat_sp
+}, dat = m2)
+m2_rare <- bind_rows(m2_rare)
+m2_rare_wide <- pivot_longer(m2_rare, cols = 1:4, names_to = "metric", 
+                             values_to = "value") %>%
+  filter(metric != "X...s.e." & !grepl(".*Homogeneous Model.*|.*iChao2.*", 
+                                       model))
 
 ## make df of species accumulations using records
 sp_acc_m1 <- data.frame(record = 1:nrow(m1), obs_n_sp = NA)
@@ -155,12 +199,12 @@ nearby_m2_wide <- select(nearby_m2, checklist_ID, Genus_species) %>%
   select(-checklist_ID)
 
 # look at species richness estimates for 20km radius area
-nearby_m1_sp <- specpool(nearby_m1_wide, smallsample = TRUE)
-nearby_m2_sp <- specpool(nearby_m2_wide, smallsample = TRUE)
+nearby_m1_sp <- ChaoSpecies(t(nearby_m1_wide), datatype = "incidence_raw", 
+                            k = 10)
+nearby_m2_sp <- ChaoSpecies(t(nearby_m2_wide), datatype = "incidence_raw", 
+                            k = 10)
 nearby_m1_sp
 nearby_m2_sp
-plot(poolaccum(nearby_m1_wide))
-plot(poolaccum(nearby_m2_wide))
 
 ## do random sp accumulation curves for nearby records -------------------------
 sp_acc_nearby_m1 <- data.frame(record = 1:nrow(nearby_m1), obs_n_sp = NA)
@@ -239,8 +283,10 @@ m2_bySite_wide[, 2:ncol(m2_bySite_wide)] <- pa(
   m2_bySite_wide[, 2:ncol(m2_bySite_wide)])
 
 # estimate species richness when adding sites (1 km grid squares)
-m1_bySite_sp <- specpool(m1_bySite_wide, smallsample = TRUE) 
-m2_bySite_sp <- specpool(m2_bySite_wide, smallsample = TRUE) 
+m1_bySite_sp <- ChaoSpecies(t(m1_bySite_wide[, 2:ncol(m1_bySite_wide)]), 
+                            datatype = "incidence_raw", k = 10)
+m2_bySite_sp <- ChaoSpecies(t(m2_bySite_wide[, 2:ncol(m2_bySite_wide)]), 
+                            datatype = "incidence_raw", k = 10)
 
 ### make df of species accumulations for graphing 
 m1_bySite_long <- filter(m1, Precision == 1000) %>%
@@ -346,6 +392,18 @@ ggplot(data = sp_acc_all_long, aes(x = record, y = cum_sp)) +
   theme_bw() + 
   theme(legend.position = "none")
 
+# ## These show that the sp. richness estimates are not "creeping up" with sample
+# # size, but seem to be settled, at least in time period 2
+# ggplot(data = m1_rare_wide, aes(x = nrecords, y = value, color = metric)) + 
+#   geom_point() + 
+#   facet_wrap(~model) + 
+#   ylim(c(0, 50))
+# 
+# ggplot(data = m2_rare_wide, aes(x = nrecords, y = value, color = metric)) + 
+#   geom_point() + 
+#   facet_wrap(~model) + 
+#   ylim(c(0, 100))
+
 # # plot location of surveys by year in period 2
 # ggplot(data = m2, aes(x = eastings, y = northings, 
 #                       color = as.numeric(as.character(year)))) + 
@@ -390,6 +448,15 @@ summary(as.numeric(table(mill$hectad)))
 hist(as.numeric(table(mill$hectad)), breaks = 50) 
 
 table(mill$year)
+
+# species richness in Ireland in two time periods
+m1_sp # species richness 1971 to 1984
+m2_sp # species richness 1986 to 2005
+
+## How many doubletons and singletons?  (To make sure Chao can work ok)
+table(m1$Genus_species)[order(table(m1$Genus_species))] # time period 1
+table(m2$Genus_species)[order(table(m2$Genus_species))] # time period 2
+
 
 table(gbif$countryCode)
 
